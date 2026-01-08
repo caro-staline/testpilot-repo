@@ -9,4 +9,13 @@ public class TestCase {
     public List<String> preconditions;
     public List<String> steps;
     public String expectedResult;
+    
+    public String getId() {
+        return id;
+    }
+    
+    public void setId(String id) {
+        this.id = id;
+    }
+   
 }

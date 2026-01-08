@@ -22,13 +22,18 @@ public class TestCaseController {
     }
 
     @PostMapping("/json")
-    public List<TestCase> generateJson(@RequestBody TestCaseRequest request) throws Exception {
-        return service.generateTestCases(request.getUserStory());
+    public List<TestCase> generateFromJson(@RequestBody TestCaseRequest request) throws Exception {
+        return service.generateTestCasesFromJson(request.getUserStory());
     }
+    
+    @PostMapping(value = "/text", consumes = "text/plain")
+    public List<TestCase> generateFromText(@RequestBody String userStory) throws Exception { 
+        return service.generateTestCasesFromText(userStory);
+    } 
 
     @PostMapping("/excel")
     public ResponseEntity<byte[]> generateExcel(@RequestBody TestCaseRequest request) throws Exception {
-        List<TestCase> cases = service.generateTestCases(request.getUserStory());
+        List<TestCase> cases = service.generateTestCasesFromJson(request.getUserStory());
         byte[] excel = ExcelWriter.write(cases);
 
         return ResponseEntity.ok()
