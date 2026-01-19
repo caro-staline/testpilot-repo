@@ -31,14 +31,14 @@ public class TestCaseController {
         return service.generateTestCasesFromText(userStory);
     } 
 
-    @PostMapping("/excel")
-    public ResponseEntity<byte[]> generateExcel(@RequestBody TestCaseRequest request) throws Exception {
-        List<TestCase> cases = service.generateTestCasesFromJson(request.getUserStory());
-        byte[] excel = ExcelWriter.write(cases);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=testcases.xlsx")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(excel);
-    }
+//    @PostMapping("/excel")
+//    public ResponseEntity<byte[]> generateExcel(@RequestBody TestCaseRequest request) throws Exception {
+//        List<TestCase> cases = service.generateTestCasesFromJson(request.getUserStory());
+//        byte[] excel = ExcelWriter.write(cases);
+//
+//        return ResponseEntity.ok()
+//                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=testcases.xlsx")
+//                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+//                .body(excel);
+//    }
 }
