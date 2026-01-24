@@ -3,12 +3,17 @@ package com.testpilot.controller;
 import com.testpilot.model.TestCase;
 import com.testpilot.model.TestCaseRequest;
 import com.testpilot.service.LlmService;
+import com.testpilot.service.OcrService;
 import com.testpilot.util.ExcelWriter;
+import com.testpilot.util.FileUtil;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.util.List;
 
 @RestController
@@ -16,8 +21,10 @@ import java.util.List;
 public class TestCaseController {
 
     private final LlmService service;
-
-    public TestCaseController(LlmService service) {
+    private final OcrService ocrService; 
+   
+    public TestCaseController(OcrService ocrService, LlmService service) {
+        this.ocrService = ocrService;
         this.service = service;
     }
 
@@ -30,6 +37,31 @@ public class TestCaseController {
     public List<TestCase> generateFromText(@RequestBody String userStory) throws Exception { 
         return service.generateTestCasesFromText(userStory);
     } 
+    
+    @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    	public List<TestCase> generateFromImage(
+    	        @RequestPart("userStory") String userStory,
+    	        @RequestPart("screenshot") MultipartFile screenshot
+    	) throws Exception {
+
+    	    File imageFile = FileUtil.toFile(screenshot);
+
+    	    String ocrText = ocrService.extractText(imageFile);
+
+    	    String combinedInput = """
+    	    USER STORY:
+    	    %s
+
+    	    UI TEXT (extracted from screenshot):
+    	    %s
+    	    """.formatted(userStory, ocrText);
+
+    	    return service.generateTestCasesFromJson(combinedInput);
+    	}
+
+
+   
+
 
 //    @PostMapping("/excel")
 //    public ResponseEntity<byte[]> generateExcel(@RequestBody TestCaseRequest request) throws Exception {

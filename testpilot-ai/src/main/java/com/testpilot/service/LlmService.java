@@ -2,8 +2,12 @@ package com.testpilot.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.File;
 import com.testpilot.model.TestCase;
+import com.testpilot.util.FileUtil;
+
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 import java.util.List;
 import java.util.Map;
@@ -60,45 +64,76 @@ public class LlmService {
 //        Generate test cases for the following user story including negative scenario:
 //        """ + userStory;
 
+//		String prompt = """
+//					You are a Senior QA Engineer.
+//
+//					TASK:
+//					Generate test cases with strong positive and negative coverage.
+//
+//					OUTPUT RULES (MANDATORY):
+//				- Return ONLY a valid JSON array
+//					- No explanations, markdown, backticks, or extra text
+//					- Do NOT wrap JSON in quotes
+//					- JSON must be syntactically complete and valid
+//				  		- JSON MUST start with '[' and end with ']'.
+//
+//				FORMAT:
+//					[
+//					  {
+//					    "id": "",
+//					    "scenario": "string",
+//					    "title": "string",
+//				    "preconditions": ["string"],
+//					    "steps": ["string"],
+//					    "expectedResult": "string"
+//					  }
+//				]
+//
+//					FIELD RULES:
+//					- "id" MUST be an empty string ""
+//					- "steps" MUST be an array of plain strings (no objects)
+//					- "scenario" MUST describe the context in slightly more detail
+//
+//
+//					QUALITY RULES:
+//				- Include both positive and negative test cases
+//					- Prefer clarity and correctness over quantity
+//				- If unsure, generate fewer test cases instead of incomplete output
+//
+//				Before responding, mentally validate the JSON structure and completeness.
+//					Generate test cases for the following user story:
+//				""" + userStory;
+		
 		String prompt = """
-					You are a Senior QA Engineer.
+				You are a Senior QA engineer.
 
-					TASK:
-					Generate test cases with strong positive and negative coverage.
+				Generate test cases using:
+				1) the user story
+				2) UI text extracted from a screenshot
 
-					OUTPUT RULES (MANDATORY):
-				- Return ONLY a valid JSON array
-					- No explanations, markdown, backticks, or extra text
-					- Do NOT wrap JSON in quotes
-					- JSON must be syntactically complete and valid
-				  		- JSON MUST start with '[' and end with ']'.
+				Rules:
+				- Output ONLY a valid JSON array
+				- No explanations or markdown
+				- JSON must start with '[' and end with ']'
 
-				FORMAT:
-					[
-					  {
-					    "id": "",
-					    "scenario": "string",
-					    "title": "string",
-				    "preconditions": ["string"],
-					    "steps": ["string"],
-					    "expectedResult": "string"
-					  }
-				]
+				Each item structure:
+				{
+				  "id": "",
+				  "scenario": "string",
+				  "title": "string",
+				  "preconditions": ["string"],
+				  "steps": ["string"],
+				  "expectedResult": "string"
+				}
 
-					FIELD RULES:
-					- "id" MUST be an empty string ""
-					- "steps" MUST be an array of plain strings (no objects)
-					- "scenario" MUST describe the context in slightly more detail
+				Constraints:
+				- Do NOT generate id values
+				- steps must be plain strings
+				- Cover positive and negative scenarios
 
-
-					QUALITY RULES:
-				- Include both positive and negative test cases
-					- Prefer clarity and correctness over quantity
-				- If unsure, generate fewer test cases instead of incomplete output
-
-				Before responding, mentally validate the JSON structure and completeness.
-					Generate test cases for the following user story:
+				Input:
 				""" + userStory;
+
 
 		Map<String, Object> request = Map.of("model", "llama3", "prompt", prompt, "stream", false);
 
@@ -160,5 +195,7 @@ public class LlmService {
 	private String generateTestCaseId(int index) {
 		return String.format("Testcase-%03d", index);
 	}
+	
+	
 
 }
