@@ -12,7 +12,7 @@ public class OcrService {
 
     public OcrService() {
         tesseract = new Tesseract();
-        tesseract.setDatapath("C:/Program Files/Tesseract-OCR/tessdata");
+        tesseract.setDatapath("C:/Program Files/Tesseract-OCR/tessdata");        
         tesseract.setLanguage("eng");
     }
 

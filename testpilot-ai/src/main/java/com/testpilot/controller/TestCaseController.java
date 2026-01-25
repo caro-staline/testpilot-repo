@@ -2,6 +2,7 @@ package com.testpilot.controller;
 
 import com.testpilot.model.TestCase;
 import com.testpilot.model.TestCaseRequest;
+import com.testpilot.service.EmbeddingService;
 import com.testpilot.service.LlmService;
 import com.testpilot.service.OcrService;
 import com.testpilot.util.ExcelWriter;
@@ -22,10 +23,12 @@ public class TestCaseController {
 
     private final LlmService service;
     private final OcrService ocrService; 
+    private final EmbeddingService embeddingService;
    
-    public TestCaseController(OcrService ocrService, LlmService service) {
+    public TestCaseController(OcrService ocrService, LlmService service, EmbeddingService embeddingService) {
         this.ocrService = ocrService;
         this.service = service;
+        this.embeddingService = embeddingService;
     }
 
     @PostMapping("/json")
@@ -48,20 +51,16 @@ public class TestCaseController {
 
     	    String ocrText = ocrService.extractText(imageFile);
 
-    	    String combinedInput = """
-    	    USER STORY:
-    	    %s
+//    	    String combinedInput = """
+//    	    USER STORY:
+//    	    %s
+//
+//    	    UI TEXT (extracted from screenshot):
+//    	    %s
+//    	    """.formatted(userStory, ocrText);
 
-    	    UI TEXT (extracted from screenshot):
-    	    %s
-    	    """.formatted(userStory, ocrText);
-
-    	    return service.generateTestCasesFromJson(combinedInput);
+    	    return service.generateTestCasesFromJson(userStory, ocrText);
     	}
-
-
-   
-
 
 //    @PostMapping("/excel")
 //    public ResponseEntity<byte[]> generateExcel(@RequestBody TestCaseRequest request) throws Exception {
@@ -73,4 +72,12 @@ public class TestCaseController {
 //                .contentType(MediaType.APPLICATION_OCTET_STREAM)
 //                .body(excel);
 //    }
+    
+    
+    @GetMapping("/embedding-test")
+    public String testEmbedding(@RequestBody String text) {
+        List<Double> vector = embeddingService.generateEmbedding(text);
+        return "Vector : \n" + vector;
+    }
+    
 }

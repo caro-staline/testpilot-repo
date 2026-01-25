@@ -11,18 +11,103 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 import java.util.List;
 import java.util.Map;
+import com.testpilot.repository.VectorRepository;
+
 
 @Service
 public class LlmService {
 
 	private final WebClient webClient;
 	private final ObjectMapper mapper = new ObjectMapper();
+	private final VectorRepository vectorRepository;
+	private final EmbeddingService embeddingService;
 
-	public LlmService() {
-		this.webClient = WebClient.builder().baseUrl("http://localhost:11434").build();
+
+//	public LlmService() {
+//		this.webClient = WebClient.builder().baseUrl("http://localhost:11434").build();
+//	}
+	
+//	public LlmService(WebClient ollamaWebClient) {
+//        this.webClient = ollamaWebClient;
+//    }
+
+	public LlmService(
+	        WebClient ollamaWebClient,
+	        EmbeddingService embeddingService,
+	        VectorRepository vectorRepository
+	) {
+	    this.webClient = ollamaWebClient;
+	    this.embeddingService = embeddingService;
+	    this.vectorRepository = vectorRepository;
+	}
+	
+	private String buildRagPrompt(String userStory, String ocrText) {
+
+	    // 1️⃣ Generate embedding for current input
+	    String combinedInput = userStory +
+	            (ocrText != null && !ocrText.isBlank() ? "\n" + ocrText : "");
+
+	    List<Double> queryVector =
+	            embeddingService.generateEmbedding(combinedInput);
+
+	    // 2️⃣ Retrieve similar past context
+	    List<String> retrievedContext =
+	            vectorRepository.findSimilarContent(queryVector, 3);
+
+	    String contextBlock = retrievedContext.isEmpty()
+	            ? "No prior relevant context available."
+	            : String.join("\n---\n", retrievedContext);
+
+	    // 3️⃣ Build final RAG prompt (YOUR PROMPT + CONTEXT)
+	    return """
+	        You are a Senior QA engineer.
+
+	        CONTEXT (previously seen requirements, UI behavior, or test cases):
+	        %s
+
+	        Generate test cases using:
+	        1) the user story
+	        2) UI text extracted from a screenshot
+
+	        Rules:
+	        - Output ONLY a valid JSON array
+	        - No explanations or markdown
+	        - JSON must start with '[' and end with ']'
+
+	        Each item structure:
+	        {
+	          "id": "",
+	          "scenario": "string",
+	          "title": "string",
+	          "preconditions": ["string"],
+	          "steps": ["string"],
+	          "expectedResult": "string"
+	        }
+
+	        Constraints:
+	        - Do NOT generate id values
+	        - steps must be plain strings
+	        - Cover positive and negative scenarios
+
+	        USER STORY:
+	        %s
+
+	        UI TEXT (if available):
+	        %s
+	        """.formatted(
+	                contextBlock,
+	                userStory,
+	                ocrText != null ? ocrText : "N/A"
+	        );
 	}
 
+
 	public List<TestCase> generateTestCasesFromJson(String userStory) throws Exception {
+		return generateTestCasesFromJson(userStory, null);
+	}
+	
+	
+	public List<TestCase> generateTestCasesFromJson(String userStory, String ocrText) throws Exception {
 
 //        String prompt = """
 //        You are a Senior QA who generates test cases with better coverage.
@@ -104,38 +189,51 @@ public class LlmService {
 //					Generate test cases for the following user story:
 //				""" + userStory;
 		
-		String prompt = """
-				You are a Senior QA engineer.
+//		String prompt = """
+//				You are a Senior QA engineer.
+//
+//				Generate test cases using:
+//				1) the user story
+//				2) UI text extracted from a screenshot
+//
+//				Rules:
+//				- Output ONLY a valid JSON array
+//				- No explanations or markdown
+//				- JSON must start with '[' and end with ']'
+//
+//				Each item structure:
+//				{
+//				  "id": "",
+//				  "scenario": "string",
+//				  "title": "string",
+//				  "preconditions": ["string"],
+//				  "steps": ["string"],
+//				  "expectedResult": "string"
+//				}
+//
+//				Constraints:
+//				- Do NOT generate id values
+//				- steps must be plain strings
+//				- Cover positive and negative scenarios
+//
+//				Input:
+//				""" + userStory;
+		
+		String prompt = buildRagPrompt(userStory, ocrText);
 
-				Generate test cases using:
-				1) the user story
-				2) UI text extracted from a screenshot
-
-				Rules:
-				- Output ONLY a valid JSON array
-				- No explanations or markdown
-				- JSON must start with '[' and end with ']'
-
-				Each item structure:
-				{
-				  "id": "",
-				  "scenario": "string",
-				  "title": "string",
-				  "preconditions": ["string"],
-				  "steps": ["string"],
-				  "expectedResult": "string"
-				}
-
-				Constraints:
-				- Do NOT generate id values
-				- steps must be plain strings
-				- Cover positive and negative scenarios
-
-				Input:
-				""" + userStory;
 
 
-		Map<String, Object> request = Map.of("model", "llama3", "prompt", prompt, "stream", false);
+//		Map<String, Object> request = Map.of("model", "llama3", "prompt", prompt, "stream", false);
+		Map<String, Object> request = Map.of(
+			    "model", "llama3",
+			    "prompt", prompt,
+			    "stream", false,
+			    "options", Map.of(
+			        "num_ctx", 8192,
+			        "num_predict", 2048
+			    )
+			);
+
 
 		// Call Ollama
 		String rawResponse = webClient.post().uri("/api/generate").bodyValue(request).retrieve()
@@ -164,11 +262,20 @@ public class LlmService {
 		}
 
 		// Generate deterministic IDs
-
 		int counter = 1;
 		for (TestCase tc : testCases) {
 			tc.setId(generateTestCaseId(counter++));
 		}
+		
+		//Store New Knowledge After Generation
+		//After parsing test cases, store user input so future calls get smarter.
+		List<Double> embedding = embeddingService.generateEmbedding(userStory);
+		vectorRepository.saveEmbedding(
+		        "USER_STORY",
+		        userStory,
+		        embedding
+		);
+
 
 		return testCases;
 

@@ -24,6 +24,41 @@
     <properties>
         <java.version>17</java.version>
     </properties>
+    
+    <!-- Spring AI artifacts are NOT hosted in Maven Central
+		They live in Spring’s own repositories (milestone / snapshot)
+		Maven Central alone cannot resolve them 
+		Hence, adding below repositories which is required for Spring AI
+	-->
+    <repositories>
+	    <repository>
+	        <id>spring-milestones</id>
+	        <name>Spring Milestones</name>
+	        <url>https://repo.spring.io/milestone</url>
+	    </repository>
+	
+	    <repository>
+	        <id>spring-snapshots</id>
+	        <name>Spring Snapshots</name>
+	        <url>https://repo.spring.io/snapshot</url>
+	        <snapshots>
+	            <enabled>true</enabled>
+	        </snapshots>
+	    </repository>
+	</repositories>
+	
+	<dependencyManagement>
+	    <dependencies>
+	        <dependency>
+	            <groupId>org.springframework.ai</groupId>
+	            <artifactId>spring-ai-bom</artifactId>
+	            <version>0.8.1</version>
+	            <type>pom</type>
+	            <scope>import</scope>
+	        </dependency>
+	    </dependencies>
+	</dependencyManagement>
+
 
     <dependencies>
 
@@ -64,6 +99,24 @@
 			<groupId>net.sourceforge.tess4j</groupId>
 			<artifactId>tess4j</artifactId>
 			<version>5.11.0</version>
+		</dependency>
+
+		<!-- Native Spring Boot integration for RAG Framework -->
+		<dependency>
+		    <groupId>org.springframework.ai</groupId>
+		    <artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
+		</dependency>
+		
+		<!-- PostgreSQL Driver -->
+		<dependency>
+		    <groupId>org.postgresql</groupId>
+		    <artifactId>postgresql</artifactId>
+		</dependency>
+		
+		<!-- JDBC Template -->
+		<dependency>
+		    <groupId>org.springframework.boot</groupId>
+		    <artifactId>spring-boot-starter-jdbc</artifactId>
 		</dependency>
 
 
