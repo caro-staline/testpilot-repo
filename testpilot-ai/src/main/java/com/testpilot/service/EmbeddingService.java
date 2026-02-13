@@ -15,6 +15,7 @@ public class EmbeddingService {
     public EmbeddingService(WebClient ollamaWebClient) {
         this.webClient = ollamaWebClient;
     }
+    
 
     @SuppressWarnings("unchecked")
     public List<Double> generateEmbedding(String text) {
@@ -22,14 +23,6 @@ public class EmbeddingService {
                 "model", "nomic-embed-text",
                 "prompt", text
         );
-
-//        Map response = webClient.post()
-//                .uri("/api/embeddings")
-//                .bodyValue(request)
-//                .retrieve()
-//                .bodyToMono(Map.class)
-//                .block();
-//       return (List<Double>) response.get("embedding");
         
         Map<String, Object> response = webClient.post()
                 .uri("/api/embeddings")

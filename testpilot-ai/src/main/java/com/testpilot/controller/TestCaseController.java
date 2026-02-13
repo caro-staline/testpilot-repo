@@ -18,7 +18,7 @@ import java.io.File;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/testcases")
+@RequestMapping("/api")
 public class TestCaseController {
 
     private final LlmService service;
@@ -31,36 +31,34 @@ public class TestCaseController {
         this.embeddingService = embeddingService;
     }
 
-    @PostMapping("/json")
+    @PostMapping("/generatetestcase/json")
     public List<TestCase> generateFromJson(@RequestBody TestCaseRequest request) throws Exception {
+    	
         return service.generateTestCasesFromJson(request.getUserStory());
     }
     
-    @PostMapping(value = "/text", consumes = "text/plain")
+    @PostMapping(value = "/generatetestcase/text", consumes = "text/plain")
     public List<TestCase> generateFromText(@RequestBody String userStory) throws Exception { 
         return service.generateTestCasesFromText(userStory);
     } 
     
-    @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/generatetestcase/multimodel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     	public List<TestCase> generateFromImage(
     	        @RequestPart("userStory") String userStory,
     	        @RequestPart("screenshot") MultipartFile screenshot
     	) throws Exception {
 
     	    File imageFile = FileUtil.toFile(screenshot);
-
     	    String ocrText = ocrService.extractText(imageFile);
-
-//    	    String combinedInput = """
-//    	    USER STORY:
-//    	    %s
-//
-//    	    UI TEXT (extracted from screenshot):
-//    	    %s
-//    	    """.formatted(userStory, ocrText);
-
     	    return service.generateTestCasesFromJson(userStory, ocrText);
     	}
+    
+    @GetMapping("/get-embedding")
+    public String testEmbedding(@RequestBody String text) {
+        List<Double> vector = embeddingService.generateEmbedding(text);
+        return "Vector : \n" + vector;
+    }    
+    
 
 //    @PostMapping("/excel")
 //    public ResponseEntity<byte[]> generateExcel(@RequestBody TestCaseRequest request) throws Exception {
@@ -74,10 +72,6 @@ public class TestCaseController {
 //    }
     
     
-    @GetMapping("/embedding-test")
-    public String testEmbedding(@RequestBody String text) {
-        List<Double> vector = embeddingService.generateEmbedding(text);
-        return "Vector : \n" + vector;
-    }
+    
     
 }

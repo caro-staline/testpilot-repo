@@ -23,14 +23,8 @@ public class LlmService {
 	private final EmbeddingService embeddingService;
 
 
-//	public LlmService() {
-//		this.webClient = WebClient.builder().baseUrl("http://localhost:11434").build();
-//	}
-	
-//	public LlmService(WebClient ollamaWebClient) {
-//        this.webClient = ollamaWebClient;
-//    }
 
+	//Constructor
 	public LlmService(
 	        WebClient ollamaWebClient,
 	        EmbeddingService embeddingService,
@@ -43,14 +37,14 @@ public class LlmService {
 	
 	private String buildRagPrompt(String userStory, String ocrText) {
 
-	    // 1️⃣ Generate embedding for current input
+	    // 1️. Generate embedding for current input
 	    String combinedInput = userStory +
 	            (ocrText != null && !ocrText.isBlank() ? "\n" + ocrText : "");
 
 	    List<Double> queryVector =
 	            embeddingService.generateEmbedding(combinedInput);
 
-	    // 2️⃣ Retrieve similar past context
+	    // 2️. Retrieve similar past context
 	    List<String> retrievedContext =
 	            vectorRepository.findSimilarContent(queryVector, 3);
 
@@ -58,7 +52,7 @@ public class LlmService {
 	            ? "No prior relevant context available."
 	            : String.join("\n---\n", retrievedContext);
 
-	    // 3️⃣ Build final RAG prompt (YOUR PROMPT + CONTEXT)
+	    // 3️.  Build final RAG prompt (YOUR PROMPT + CONTEXT)
 	    return """
 	        You are a Senior QA engineer.
 
@@ -88,6 +82,7 @@ public class LlmService {
 	        - Do NOT generate id values
 	        - steps must be plain strings
 	        - Cover positive and negative scenarios
+	        - Use retrieved context ONLY if it is clearly relevant. Ignore any unrelated information.
 
 	        USER STORY:
 	        %s
@@ -107,123 +102,13 @@ public class LlmService {
 	}
 	
 	
+	//Function Used for all types of input - test case conversion
 	public List<TestCase> generateTestCasesFromJson(String userStory, String ocrText) throws Exception {
-
-//        String prompt = """
-//        You are a Senior QA who generates test cases with better coverage.
-//
-//        Return ONLY a valid JSON array.
-//        Do NOT include explanations, markdown, backticks, or extra text.
-//        Do NOT wrap the JSON in quotes.
-//        Do NOT escape characters.
-//
-//        The JSON MUST start with '[' and end with ']'.
-//
-//        Each test case MUST follow this structure exactly:
-//        [
-//          {
-//            "id": "",
-//            "scenario": "string",
-//            "title": "string",
-//            "preconditions": ["string"],
-//            "steps": ["string"],
-//            "expectedResult": "string"
-//          }
-//        ]        
-//       
-//        
-//        IMPORTANT:
-//        - Do NOT generate the "id" field.
-//        - Leave "id" as an empty string ""
-//		- "steps" MUST be an array of plain strings
-//		- Do NOT use objects inside "steps"		  
-//		- scenario - a little elobrate description of the context for which testcases are written
-//		
-//		CRITICAL RULES:
-//		- You MUST close every object with '}'
-//		- You MUST close the array with ']'
-//		- Do NOT stop mid-response
-//		- Ensure the JSON is syntactically COMPLETE and VALID
-//		- If unsure, generate FEWER test cases instead of truncating
-//		
-//        Generate test cases for the following user story including negative scenario:
-//        """ + userStory;
-
-//		String prompt = """
-//					You are a Senior QA Engineer.
-//
-//					TASK:
-//					Generate test cases with strong positive and negative coverage.
-//
-//					OUTPUT RULES (MANDATORY):
-//				- Return ONLY a valid JSON array
-//					- No explanations, markdown, backticks, or extra text
-//					- Do NOT wrap JSON in quotes
-//					- JSON must be syntactically complete and valid
-//				  		- JSON MUST start with '[' and end with ']'.
-//
-//				FORMAT:
-//					[
-//					  {
-//					    "id": "",
-//					    "scenario": "string",
-//					    "title": "string",
-//				    "preconditions": ["string"],
-//					    "steps": ["string"],
-//					    "expectedResult": "string"
-//					  }
-//				]
-//
-//					FIELD RULES:
-//					- "id" MUST be an empty string ""
-//					- "steps" MUST be an array of plain strings (no objects)
-//					- "scenario" MUST describe the context in slightly more detail
-//
-//
-//					QUALITY RULES:
-//				- Include both positive and negative test cases
-//					- Prefer clarity and correctness over quantity
-//				- If unsure, generate fewer test cases instead of incomplete output
-//
-//				Before responding, mentally validate the JSON structure and completeness.
-//					Generate test cases for the following user story:
-//				""" + userStory;
 		
-//		String prompt = """
-//				You are a Senior QA engineer.
-//
-//				Generate test cases using:
-//				1) the user story
-//				2) UI text extracted from a screenshot
-//
-//				Rules:
-//				- Output ONLY a valid JSON array
-//				- No explanations or markdown
-//				- JSON must start with '[' and end with ']'
-//
-//				Each item structure:
-//				{
-//				  "id": "",
-//				  "scenario": "string",
-//				  "title": "string",
-//				  "preconditions": ["string"],
-//				  "steps": ["string"],
-//				  "expectedResult": "string"
-//				}
-//
-//				Constraints:
-//				- Do NOT generate id values
-//				- steps must be plain strings
-//				- Cover positive and negative scenarios
-//
-//				Input:
-//				""" + userStory;
-		
+		//1.Bulid prompt
 		String prompt = buildRagPrompt(userStory, ocrText);
-
-
-
-//		Map<String, Object> request = Map.of("model", "llama3", "prompt", prompt, "stream", false);
+		//Map<String, Object> request = Map.of("model", "llama3", "prompt", prompt, "stream", false);
+		//To handle truncation when more volume of data is generated -  "num_ctx", 8192, "num_predict", 2048
 		Map<String, Object> request = Map.of(
 			    "model", "llama3",
 			    "prompt", prompt,
@@ -234,25 +119,16 @@ public class LlmService {
 			    )
 			);
 
-
-		// Call Ollama
+		// 2.Call Ollama
 		String rawResponse = webClient.post().uri("/api/generate").bodyValue(request).retrieve()
 				.bodyToMono(String.class).block();
-
-		// DEBUG (recommended during development)
+		//DEBUG purpose
 		// System.out.println("RAW OLLAMA RESPONSE:\n" + rawResponse);
 
-		// Extract the "response" field from Ollama JSON
+		//3.Extract the "response" field from Ollama JSON
 		String llmOutput = mapper.readTree(rawResponse).path("response").asText().trim();
 
-		// Guard clause: ensure RAW JSON
-//		if (!llmOutput.startsWith("[") || !llmOutput.endsWith("]")) {
-//			throw new IllegalStateException("LLM did not return raw JSON array:\n" + llmOutput);
-//		}
-
-//		List<TestCase> testCases = mapper.readValue(llmOutput, new TypeReference<List<TestCase>>() {
-//		});
-
+		//4. Guard clause: ensure RAW JSON
 		List<TestCase> testCases;
 		try {
 			testCases = mapper.readValue(llmOutput, new TypeReference<List<TestCase>>() {
@@ -265,38 +141,33 @@ public class LlmService {
 		int counter = 1;
 		for (TestCase tc : testCases) {
 			tc.setId(generateTestCaseId(counter++));
-		}
-		
+		}		
 		//Store New Knowledge After Generation
 		//After parsing test cases, store user input so future calls get smarter.
-		List<Double> embedding = embeddingService.generateEmbedding(userStory);
-		vectorRepository.saveEmbedding(
-		        "USER_STORY",
-		        userStory,
-		        embedding
-		);
-
-
+//		List<Double> embedding = embeddingService.generateEmbedding(userStory);
+//		vectorRepository.saveEmbedding(
+//		        "USER_STORY",
+//		        userStory,
+//		        embedding
+//		);
 		return testCases;
 
 	}
+	
 
 	public List<TestCase> generateTestCasesFromText(String userStory) throws Exception {
-
 		return generateTestCasesFromJson(convertUserstoryTextToJson(userStory));
 	}
+	
 
 	// Convert User story in plain text to Json format
 	private String convertUserstoryTextToJson(String userStory) throws Exception {
-
 		ObjectMapper mapper = new ObjectMapper();
-
 		Map<String, String> jsonMap = Map.of("userStory", userStory);
-
 		String formattedUserstory = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonMap);
-
 		return formattedUserstory;
 	}
+	
 
 	// Centralized ID generation logic
 	private String generateTestCaseId(int index) {
