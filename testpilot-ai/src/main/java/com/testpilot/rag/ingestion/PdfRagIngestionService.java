@@ -11,6 +11,11 @@ import com.testpilot.rag.chunking.RecursiveTextChunker;
 import com.testpilot.repository.VectorRepository;
 import com.testpilot.service.EmbeddingService;
 
+/**
+ * Service for ingesting PDF documents into the RAG (Retrieval-Augmented
+ * Generation) system.
+ * Handles loading, text extraction, chunking, embedding, and storage.
+ */
 @Service
 public class PdfRagIngestionService {
 
@@ -18,6 +23,13 @@ public class PdfRagIngestionService {
     private final EmbeddingService embeddingService;
     private final VectorRepository vectorRepository;
 
+    /**
+     * Constructor for PdfRagIngestionService.
+     * 
+     * @param chunker          Service for splitting text into manageable chunks.
+     * @param embeddingService Service for generating vector embeddings.
+     * @param vectorRepository Repository for database operations.
+     */
     public PdfRagIngestionService(
             RecursiveTextChunker chunker,
             EmbeddingService embeddingService,
@@ -27,23 +39,32 @@ public class PdfRagIngestionService {
         this.vectorRepository = vectorRepository;
     }
 
+    /**
+     * Processes a PDF file and stores its content in the vector database.
+     * 
+     * @param file     The PDF file from a multipart request.
+     * @param sourceId Identifier for the source of this document.
+     */
     public void ingestPdf(MultipartFile file, String sourceId) {
 
         try (PDDocument document = PDDocument.load(file.getInputStream())) {
 
-            // 1. Save Document Metadata
+            // 1. Record document metadata in the database and get a unique document ID
             Long docId = vectorRepository.saveDocument(file.getOriginalFilename());
 
+            // 2. Extract full text from the PDF document
             PDFTextStripper stripper = new PDFTextStripper();
             String fullText = stripper.getText(document);
 
-            // 2. recursive chunking
+            // 3. Split the full text into smaller, meaningful chunks for embedding
+            // Recursive chunking tries to preserve semantic structure (paragraphs,
+            // sentences).
             List<String> chunks = chunker.chunk(fullText);
 
-            // 3. Generate embeddings in batch
+            // 4. Generate vector embeddings for all text chunks in a batch
             List<List<Double>> embeddings = embeddingService.generateEmbeddings(chunks);
 
-            // 4. Batch Save
+            // 5. Save chunks and their corresponding embeddings to the vector database
             vectorRepository.batchSaveChunks(docId, chunks, embeddings);
 
         } catch (Exception e) {
