@@ -1,7 +1,5 @@
 package com.testpilot.rag.ingestion;
 
-import java.io.Reader;
-import java.io.StringReader;
 import java.util.List;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -9,23 +7,21 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.testpilot.rag.chunking.PdfTextChunker;
-//import com.testpilot.rag.chunking.TextChunker;
+import com.testpilot.rag.chunking.RecursiveTextChunker;
 import com.testpilot.repository.VectorRepository;
 import com.testpilot.service.EmbeddingService;
 
 @Service
 public class PdfRagIngestionService {
 
-    private final PdfTextChunker chunker;
+    private final RecursiveTextChunker chunker;
     private final EmbeddingService embeddingService;
     private final VectorRepository vectorRepository;
 
     public PdfRagIngestionService(
-            PdfTextChunker chunker,
+            RecursiveTextChunker chunker,
             EmbeddingService embeddingService,
-            VectorRepository vectorRepository
-    ) {
+            VectorRepository vectorRepository) {
         this.chunker = chunker;
         this.embeddingService = embeddingService;
         this.vectorRepository = vectorRepository;
@@ -35,38 +31,23 @@ public class PdfRagIngestionService {
 
         try (PDDocument document = PDDocument.load(file.getInputStream())) {
 
+            // 1. Save Document Metadata
+            Long docId = vectorRepository.saveDocument(file.getOriginalFilename());
+
             PDFTextStripper stripper = new PDFTextStripper();
-            int totalPages = document.getNumberOfPages();
+            String fullText = stripper.getText(document);
 
-            for (int page = 1; page <= totalPages; page++) {
+            // 2. recursive chunking
+            List<String> chunks = chunker.chunk(fullText);
 
-                stripper.setStartPage(page);
-                stripper.setEndPage(page);
+            // 3. Generate embeddings in batch
+            List<List<Double>> embeddings = embeddingService.generateEmbeddings(chunks);
 
-                try (Reader reader = new StringReader(stripper.getText(document))) {
-
-                    List<String> chunks = chunker.chunk(reader);
-                    int index = 0;
-
-                    for (String chunk : chunks) {
-                        List<Double> embedding = embeddingService.generateEmbedding(chunk);
-
-                        vectorRepository.saveChunk(
-                                sourceId,
-                                "PDF",
-                                sourceId,
-                                page * 1000 + index,
-                                chunk,
-                                embedding
-                        );
-                        index++;
-                    }
-                }
-            }
+            // 4. Batch Save
+            vectorRepository.batchSaveChunks(docId, chunks, embeddings);
 
         } catch (Exception e) {
             throw new RuntimeException("PDF ingestion failed", e);
         }
     }
 }
-

@@ -1,59 +1,14 @@
 package com.testpilot.repository;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.List;
 import java.util.stream.Collectors;
-
-//@Repository
-//public class VectorRepository {
-//
-//    private final JdbcTemplate jdbcTemplate;
-//
-//    public VectorRepository(JdbcTemplate jdbcTemplate) {
-//        this.jdbcTemplate = jdbcTemplate;
-//    }
-//
-//    public void saveEmbedding(String source, String content, List<Double> embedding) {
-//
-//        String sql = """
-//            INSERT INTO document_embeddings (source, content, embedding)
-//            VALUES (?, ?, ?::vector)
-//        """;
-//
-//        String vectorString = embedding.toString(); // [0.12, 0.98, ...]
-//
-//        jdbcTemplate.update(sql, source, content, vectorString);
-//    }
-//
-//    public List<String> findSimilarContent(List<Double> queryEmbedding, int limit) {
-//
-//        String sql = """
-//            SELECT content
-//            FROM document_embeddings
-//            WHERE embedding <-> ?::vector < 0.35
-//            ORDER BY embedding <-> ?::vector
-//            LIMIT ?
-//        """;
-//
-//        String pgVector = toPgVector(queryEmbedding);
-//
-//        return jdbcTemplate.query(
-//            sql,
-//            (rs, rowNum) -> rs.getString("content"),
-//            pgVector,
-//            pgVector,
-//            limit
-//        );
-//    }
-//    
-//    private String toPgVector(List<Double> embedding) {
-//        return embedding.stream()
-//                .map(d -> String.format("%.6f", d))
-//                .collect(Collectors.joining(",", "[", "]"));
-//    }
-//}
 
 @Repository
 public class VectorRepository {
@@ -64,30 +19,39 @@ public class VectorRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void saveChunk(
-            String source,
-            String sourceType,
-            String sourceId,
-            int chunkIndex,
-            String content,
-            List<Double> embedding
-    ) {
+    public Long saveDocument(String filename) {
+        String sql = "INSERT INTO documents (filename) VALUES (?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
 
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, filename);
+            return ps;
+        }, keyHolder);
+
+        return (Long) keyHolder.getKeys().get("id");
+    }
+
+    public void batchSaveChunks(Long documentId, List<String> chunks, List<List<Double>> embeddings) {
         String sql = """
-            INSERT INTO document_embeddings
-            (source, source_type, source_id, chunk_index, content, embedding)
-            VALUES (?, ?, ?, ?, ?, ?::vector)
-        """;
+                    INSERT INTO document_chunks (document_id, chunk_index, content, embedding)
+                    VALUES (?, ?, ?, ?::vector)
+                """;
 
-        jdbcTemplate.update(
-            sql,
-            source,
-            sourceType,
-            sourceId,
-            chunkIndex,
-            content,
-            toPgVector(embedding)
-        );
+        jdbcTemplate.batchUpdate(sql, new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws java.sql.SQLException {
+                ps.setLong(1, documentId);
+                ps.setInt(2, i);
+                ps.setString(3, chunks.get(i));
+                ps.setString(4, toPgVector(embeddings.get(i)));
+            }
+
+            @Override
+            public int getBatchSize() {
+                return chunks.size();
+            }
+        });
     }
 
     private String toPgVector(List<Double> embedding) {
@@ -95,17 +59,14 @@ public class VectorRepository {
                 .map(String::valueOf)
                 .collect(Collectors.joining(",")) + "]";
     }
-    
-    public List<String> findSimilarContent(
-            List<Double> queryEmbedding,
-            int limit
-    ) {
+
+    public List<String> findSimilarContent(List<Double> queryEmbedding, int limit) {
         String sql = """
-            SELECT content
-            FROM document_embeddings
-            ORDER BY embedding <-> ?::vector
-            LIMIT ?
-        """;
+                    SELECT content
+                    FROM document_chunks
+                    ORDER BY embedding <-> ?::vector
+                    LIMIT ?
+                """;
 
         String vector = toPgVector(queryEmbedding);
 
@@ -113,10 +74,6 @@ public class VectorRepository {
                 sql,
                 (rs, rowNum) -> rs.getString("content"),
                 vector,
-                limit
-        );
+                limit);
     }
-
 }
-
-
