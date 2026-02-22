@@ -5,7 +5,9 @@ import com.testpilot.model.TestCaseRequest;
 import com.testpilot.service.EmbeddingService;
 import com.testpilot.service.LlmService;
 import com.testpilot.service.OcrService;
+import com.testpilot.util.ExcelWriter;
 import com.testpilot.util.FileUtil;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -88,6 +90,29 @@ public class TestCaseController {
 
         // 3. Generate test cases using both the User Story and the UI Text
         return service.generateTestCasesFromJson(userStory, ocrText);
+    }
+
+    /**
+     * Generates an Excel file from a list of test cases and returns it as a
+     * downloadable resource.
+     * 
+     * @param testCases The list of TestCase objects to export.
+     * @return ResponseEntity with the Excel file bytes.
+     * @throws Exception if generation fails.
+     */
+    @PostMapping("/generatetestcase/excel")
+    public ResponseEntity<byte[]> generateExcel(@RequestBody List<TestCase> testCases) throws Exception {
+        // Generate the Excel byte array
+        byte[] data = ExcelWriter.write(testCases);
+
+        // Set response headers to trigger a file download
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=test_cases.xlsx");
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(data);
     }
 
     /**

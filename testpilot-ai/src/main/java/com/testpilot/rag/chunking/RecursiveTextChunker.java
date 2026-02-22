@@ -3,7 +3,6 @@ package com.testpilot.rag.chunking;
 import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Component for splitting large text blocks into smaller chunks recursively.

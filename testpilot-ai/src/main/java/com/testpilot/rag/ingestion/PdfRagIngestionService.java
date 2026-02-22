@@ -43,9 +43,8 @@ public class PdfRagIngestionService {
      * Processes a PDF file and stores its content in the vector database.
      * 
      * @param file     The PDF file from a multipart request.
-     * @param sourceId Identifier for the source of this document.
      */
-    public void ingestPdf(MultipartFile file, String sourceId) {
+    public void ingestPdf(MultipartFile file) {
 
         try (PDDocument document = PDDocument.load(file.getInputStream())) {
 

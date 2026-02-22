@@ -10,6 +10,10 @@ spring:
     username: postgres
     password: Nilorac
     driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+
 
   servlet:
      multipart:

@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.testpilot.model.Document;
+import com.testpilot.model.DocumentChunk;
 import com.testpilot.model.RagQueryRequest;
 import com.testpilot.rag.ingestion.PdfRagIngestionService;
 import com.testpilot.repository.VectorRepository;
@@ -17,6 +19,8 @@ import java.util.List;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 /**
  * REST Controller for RAG (Retrieval-Augmented Generation) operations.
@@ -59,10 +63,9 @@ public class RagController {
      */
     @PostMapping(value = "/upload/pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> uploadPdf(
-            @RequestPart("file") MultipartFile file,
-            @RequestPart("sourceId") String sourceId) {
+            @RequestPart("file") MultipartFile file) {
         // Delegate ingestion logic to the service
-        ingestionService.ingestPdf(file, sourceId);
+        ingestionService.ingestPdf(file);
         return ResponseEntity.ok("PDF ingested into RAG successfully");
     }
 
@@ -89,5 +92,26 @@ public class RagController {
         List<String> rerankedResults = rerankingService.rerank(request.getQuery(), results, 5);
 
         return ResponseEntity.ok(rerankedResults);
+    }
+
+    /**
+     * Endpoint to retrieve all ingested documents.
+     * 
+     * @return List of Document metadata.
+     */
+    @GetMapping("/documents")
+    public List<Document> listDocuments() {
+        return vectorRepository.findAllDocuments();
+    }
+
+    /**
+     * Endpoint to retrieve all chunks for a specific document.
+     * 
+     * @param id The ID of the document.
+     * @return List of DocumentChunk objects.
+     */
+    @GetMapping("/documents/{id}/chunks")
+    public List<DocumentChunk> listChunks(@PathVariable Long id) {
+        return vectorRepository.findChunksByDocumentId(id);
     }
 }

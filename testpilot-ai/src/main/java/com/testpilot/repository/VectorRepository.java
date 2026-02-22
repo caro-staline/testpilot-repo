@@ -9,6 +9,8 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.testpilot.model.Document;
+import com.testpilot.model.DocumentChunk;
 
 /**
  * Repository for managing vector-based storage and retrieval in PostgreSQL
@@ -117,5 +119,33 @@ public class VectorRepository {
                 (rs, rowNum) -> rs.getString("content"),
                 vector,
                 limit);
+    }
+
+    /**
+     * Retrieves all documents stored in the database.
+     * 
+     * @return List of Document metadata.
+     */
+    public List<Document> findAllDocuments() {
+        String sql = "SELECT id, filename, uploaded_at FROM documents ORDER BY uploaded_at DESC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new Document(
+                rs.getLong("id"),
+                rs.getString("filename"),
+                rs.getTimestamp("uploaded_at").toLocalDateTime()));
+    }
+
+    /**
+     * Retrieves all chunks for a specific document.
+     * 
+     * @param documentId The ID of the document.
+     * @return List of DocumentChunk objects.
+     */
+    public List<DocumentChunk> findChunksByDocumentId(Long documentId) {
+        String sql = "SELECT id, document_id, chunk_index, content FROM document_chunks WHERE document_id = ? ORDER BY chunk_index ASC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new DocumentChunk(
+                rs.getLong("id"),
+                rs.getLong("document_id"),
+                rs.getInt("chunk_index"),
+                rs.getString("content")), documentId);
     }
 }
