@@ -85,11 +85,11 @@ public class RagController {
 
         // 2. Perform similarity search in the vector database to retrieve candidates
         // We fetch 20 candidates initially to allow for a better re-ranking phase.
-        List<String> results = vectorRepository.findSimilarContent(queryEmbedding, 20);
+        List<String> results = vectorRepository.findSimilarContent(queryEmbedding, 10);
 
         // 3. Re-rank the retrieved chunks based on relevance to the original query
         // This refines the initial vector search results.
-        List<String> rerankedResults = rerankingService.rerank(request.getQuery(), results, 5);
+        List<String> rerankedResults = rerankingService.rerank(request.getQuery(), results, 3);
 
         return ResponseEntity.ok(rerankedResults);
     }

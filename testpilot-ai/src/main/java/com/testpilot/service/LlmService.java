@@ -61,15 +61,16 @@ public class LlmService {
 		List<Double> queryVector = embeddingService.generateEmbedding(combinedInput);
 
 		// 2. Retrieve the top 20 most similar past contexts from the vector repository
-		List<String> retrievedContext = vectorRepository.findSimilarContent(queryVector, 20);
+		List<String> retrievedContext = vectorRepository.findSimilarContent(queryVector, 10);
 
 		// 3. Re-rank the retrieved results to find the most relevant top 5 segments
-		List<String> rerankedResults = rerankingService.rerank(userStory, retrievedContext, 5);
+		List<String> rerankedResults = rerankingService.rerank(userStory, retrievedContext, 3);
 
 		// 4. Aggregate the reranked results into a single context block
 		String contextBlock = rerankedResults.isEmpty()
 				? "No prior relevant context available."
 				: String.join("\n---\n", rerankedResults);
+		System.out.println("Retrived from DB: "+contextBlock);
 
 		// 5. Build the final structured prompt for the LLM
 		return """
@@ -80,7 +81,7 @@ public class LlmService {
 
 				Generate test cases using:
 				1) the user story
-				2) UI text extracted from a screenshot
+				2) UI text extracted from a screenshot				
 
 				Rules:
 				- Output ONLY a valid JSON array
